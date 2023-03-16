@@ -43,90 +43,92 @@ hook.Add( "LambdaOnThink", "lambdanextbotfearmodule_think", Think )
 
 
 
+if SERVER then
 
+    -- Pretty much ported from the zetas but I really don't see anything wrong with this code.
+    -- Just needed a little cleaning
+    hook.Add( "OnEntityCreated", "lambdanextbotfearmodule_entitycreate", function( ent )
+        timer.Simple( 0, function()
+            if !IsValid( ent ) then return end
 
--- Pretty much ported from the zetas but I really don't see anything wrong with this code.
--- Just needed a little cleaning
-hook.Add( "OnEntityCreated", "lambdanextbotfearmodule_entitycreate", function( ent )
-    timer.Simple( 0, function()
-        if !IsValid( ent ) then return end
+            local entClass = ent:GetClass()
+            if entClass == "npc_sanic" or (ent:IsNextBot() and isfunction( ent.AttackNearbyTargets ) ) then
 
-        local entClass = ent:GetClass()
-        if entClass == "npc_sanic" or (ent:IsNextBot() and isfunction( ent.AttackNearbyTargets ) ) then
-
-            local id = ent:GetCreationID()
-            hook.Add( "Think", "zeta_sanicNextbotsSupport_" .. id, function()
-                if !IsValid( ent ) then hook.Remove( "Think", "zeta_sanicNextbotsSupport_" .. id ) return end
-                
-                local scanTime = GetConVar( entClass .. "_expensive_scan_interval" ):GetInt() or 1
-
-                if ( CurTime() - ent.LastTargetSearch ) > scanTime then
-                    ent.ClosestLambda = nil
+                local id = ent:GetCreationID()
+                hook.Add( "Think", "zeta_sanicNextbotsSupport_" .. id, function()
+                    if !IsValid( ent ) then hook.Remove( "Think", "zeta_sanicNextbotsSupport_" .. id ) return end
                     
-                    local lastDist = math.huge
-                    local chaseDist = GetConVar( entClass .. "_acquire_distance" ):GetInt() or 2500
-                    local lambdas = ents.FindByClass( "npc_lambdaplayer" )
+                    local scanTime = GetConVar( entClass .. "_expensive_scan_interval" ):GetInt() or 1
 
-                    for i = 1, #lambdas  do
-                        if !lambdas[ i ]:Alive() then continue end
+                    if ( CurTime() - ent.LastTargetSearch ) > scanTime then
+                        ent.ClosestLambda = nil
+                        
+                        local lastDist = math.huge
+                        local chaseDist = GetConVar( entClass .. "_acquire_distance" ):GetInt() or 2500
+                        local lambdas = ents.FindByClass( "npc_lambdaplayer" )
 
-                        local distSqr = ent:GetRangeSquaredTo( lambdas[ i ] )
+                        for i = 1, #lambdas  do
+                            if !lambdas[ i ]:Alive() then continue end
 
-                        if distSqr <= ( chaseDist * chaseDist ) and distSqr < lastDist then
-                            ent.ClosestLambda = lambdas[ i ]
-                            lastDist = distSqr
-                        end
-                    end
-                end
+                            local distSqr = ent:GetRangeSquaredTo( lambdas[ i ] )
 
-                local closestlambda = ent.ClosestLambda
-                if !IsValid( closestlambda ) then return end 
-                
-                local curTarget = ent.CurrentTarget
-                local lambdadist = ent:GetRangeSquaredTo( closestlambda )
-                
-                if ent.CurrentTarget != closestlambda then
-
-                    if !IsValid( curTarget ) or ( ent:GetRangeSquaredTo( curTarget ) > lambdadist and closestlambda != curTarget ) then
-                        ent.CurrentTarget = closestlambda
-                    end
-
-                elseif closestlambda:Alive() then
-
-                    local dmgDist = GetConVar( entClass .. "_attack_distance" ):GetInt() or 80
-                    if lambdadist > ( dmgDist * dmgDist ) then return end
-                    
-                    local startHP = closestlambda:Health()
-
-                    local attackForce = GetConVar( entClass .. "_attack_force" ):GetInt() or 800
-                    if isfunction( ent.AttackOpponent ) then
-                        ent:AttackOpponent( closestlambda, ent:GetPos(), attackForce )
-                    else 
-                        local dmgInfo = DamageInfo()
-                        dmgInfo:SetAttacker( ent )
-                        dmgInfo:SetInflictor( ent )
-                        dmgInfo:SetDamage( 1e8 )
-                        dmgInfo:SetDamagePosition( ent:GetPos() )
-                        dmgInfo:SetDamageForce( ( (closestlambda:GetPos() - ent:GetPos() ):GetNormal() * attackForce + ent:GetUp() * 500 ) * 100 )
-                        closestlambda:TakeDamageInfo(dmgInfo)
-
-                        ent:EmitSound( "physics/body/body_medium_impact_hard" .. math.random( 6 ) .. ".wav", 350, 120)
-                    end
-
-                    if closestlambda:Health() < startHP then 
-                        if ent.TauntSounds and ( CurTime() - ent.LastTaunt ) > 1.2 then
-                            ent.LastTaunt = CurTime()
-                            local snd = ent.TauntSounds[ math.random( #ent.TauntSounds ) ]
-                            if snd == nil then snd = ent.TauntSounds end
-                            if isstring( snd ) then
-                                ent:EmitSound( snd, 350, 100 )
+                            if distSqr <= ( chaseDist * chaseDist ) and distSqr < lastDist then
+                                ent.ClosestLambda = lambdas[ i ]
+                                lastDist = distSqr
                             end
                         end
-
-                        ent.LastTargetSearch = 0
                     end
-                end
-            end)
-        end
+
+                    local closestlambda = ent.ClosestLambda
+                    if !IsValid( closestlambda ) then return end 
+                    
+                    local curTarget = ent.CurrentTarget
+                    local lambdadist = ent:GetRangeSquaredTo( closestlambda )
+                    
+                    if ent.CurrentTarget != closestlambda then
+
+                        if !IsValid( curTarget ) or ( ent:GetRangeSquaredTo( curTarget ) > lambdadist and closestlambda != curTarget ) then
+                            ent.CurrentTarget = closestlambda
+                        end
+
+                    elseif closestlambda:Alive() then
+
+                        local dmgDist = GetConVar( entClass .. "_attack_distance" ):GetInt() or 80
+                        if lambdadist > ( dmgDist * dmgDist ) then return end
+                        
+                        local startHP = closestlambda:Health()
+
+                        local attackForce = GetConVar( entClass .. "_attack_force" ):GetInt() or 800
+                        if isfunction( ent.AttackOpponent ) then
+                            ent:AttackOpponent( closestlambda, ent:GetPos(), attackForce )
+                        else 
+                            local dmgInfo = DamageInfo()
+                            dmgInfo:SetAttacker( ent )
+                            dmgInfo:SetInflictor( ent )
+                            dmgInfo:SetDamage( 1e8 )
+                            dmgInfo:SetDamagePosition( ent:GetPos() )
+                            dmgInfo:SetDamageForce( ( (closestlambda:GetPos() - ent:GetPos() ):GetNormal() * attackForce + ent:GetUp() * 500 ) * 100 )
+                            closestlambda:TakeDamageInfo(dmgInfo)
+
+                            ent:EmitSound( "physics/body/body_medium_impact_hard" .. math.random( 6 ) .. ".wav", 350, 120)
+                        end
+
+                        if closestlambda:Health() < startHP then 
+                            if ent.TauntSounds and ( CurTime() - ent.LastTaunt ) > 1.2 then
+                                ent.LastTaunt = CurTime()
+                                local snd = ent.TauntSounds[ math.random( #ent.TauntSounds ) ]
+                                if snd == nil then snd = ent.TauntSounds end
+                                if isstring( snd ) then
+                                    ent:EmitSound( snd, 350, 100 )
+                                end
+                            end
+
+                            ent.LastTargetSearch = 0
+                        end
+                    end
+                end)
+            end
+        end )
     end )
-end )
+
+end
